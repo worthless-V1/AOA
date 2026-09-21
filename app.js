@@ -41,13 +41,26 @@ const loadRar = () => rarP ||= (async () => {
   return data => api.createExtractorFromData({ wasmBinary: wasm, data });
 })().catch(e => { rarP = null; throw e; });
 
-async function readArchive(file, { firstOnly = false, onProgress } = {}) {
+async function readArchive(file, { firstOnly = false, onProgress, onStatus } = {}) {
   const res = await fetch(enc(file));
   if (!res.ok) throw new Error(`Could not load ${file} (${res.status}). Check the path in comics.json.`);
-  const buf = await res.arrayBuffer();
+  const total = +res.headers.get('content-length') || 0, mb = n => Math.round(n / 1048576);
+  const tick = () => new Promise(r => setTimeout(r, 30));
+  let buf;
+  if (res.body && onStatus) {                                 // download with visible progress
+    const rd = res.body.getReader(), parts = []; let got = 0, last = '';
+    for (;;) {
+      const { done, value } = await rd.read(); if (done) break;
+      parts.push(value); got += value.length;
+      const t = total ? `Downloading ${mb(got)} of ${mb(total)} MB` : `Downloading ${mb(got)} MB`;
+      if (t !== last) onStatus(last = t);
+    }
+    buf = await new Blob(parts).arrayBuffer();
+  } else buf = await res.arrayBuffer();
   const h = new Uint8Array(buf, 0, 4), pages = [];
   if (h[0] === 0x50 && h[1] === 0x4b) {                       // ZIP (.cbz, or a .cbr that is really a zip)
     if (typeof JSZip === 'undefined') throw new Error('Could not load the ZIP engine. Check your connection.');
+    onStatus?.('Unpacking…'); await tick();
     const zip = await JSZip.loadAsync(buf);
     const names = Object.keys(zip.files).filter(n => !zip.files[n].dir && isPage(n)).sort(nat);
     const want = firstOnly ? names.slice(0, 1) : names;
@@ -56,7 +69,9 @@ async function readArchive(file, { firstOnly = false, onProgress } = {}) {
       onProgress?.(pages.length, want.length);
     }
   } else if (h[0] === 0x52 && h[1] === 0x61) {               // RAR (.cbr)
+    onStatus?.('Loading RAR engine…'); await tick();
     const rar = await (await loadRar())(buf);
+    onStatus?.('Unpacking…'); await tick();
     const names = [...rar.getFileList().fileHeaders].filter(f => !f.flags.directory && isPage(f.name)).map(f => f.name).sort(nat);
     const want = firstOnly ? names.slice(0, 1) : names;
     if (want.length) for (const f of rar.extract({ files: want }).files) {
@@ -87,7 +102,7 @@ async function makeThumb(blob) {
 function loadCover(c, img, ph) {                               // first page of the CBR = thumbnail
   const my = gen;
   img.onload = () => ph.remove();
-  const fail = e => { ph.textContent = 'Cover unavailable'; ph.title = e?.message || ''; ph.classList.add('err'); };
+  const fail = e => { ph.textContent = e?.message || 'Cover unavailable'; ph.classList.add('err'); };
   img.onerror = () => fail();
   queue = queue.then(async () => {
     if (my !== gen) return;                                    // user already changed page
@@ -95,7 +110,7 @@ function loadCover(c, img, ph) {                               // first page of 
       if (c.cover) return void (img.src = enc(c.cover));       // optional pre-made cover
       let blob = await getCover(c.file);
       if (!blob) {
-        const [first] = await readArchive(c.file, { firstOnly: true });
+        const [first] = await readArchive(c.file, { firstOnly: true, onStatus: t => ph.textContent = t });
         blob = await makeThumb(first.blob);
         putCover(c.file, blob);
       }
@@ -154,7 +169,7 @@ async function openReader(c) {
   $('#page').removeAttribute('src');
   msg('Downloading…');
   try {
-    const pages = await readArchive(c.file, { onProgress: (n, total) => t === R.token && msg(`Extracting page ${n} of ${total}`) });
+    const pages = await readArchive(c.file, { onStatus: s => t === R.token && msg(s), onProgress: (n, total) => t === R.token && msg(`Extracting page ${n} of ${total}`) });
     if (t !== R.token) return;
     R.pages = pages; msg('');
     show((progress()[c.file]?.page || 1) - 1);
@@ -219,3 +234,4 @@ addEventListener('hashchange', render);
   } catch { $('#grid').append(el('p', 'empty', 'Could not read data/comics.json. If testing locally, serve the folder (python3 -m http.server) instead of opening the file.')); return; }
   render();
 })();
+                                             
