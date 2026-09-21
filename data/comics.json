@@ -1,1 +1,7 @@
-
+{
+  "comics": [
+    "data/cbr/First Comic.cbr",
+    "data/cbr/Second Comic.cbr",
+    "data/cbr/Third Comic.cbr"
+  ]
+}
