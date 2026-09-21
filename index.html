@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bullseye Reader</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23d92027'/><circle cx='50' cy='50' r='32' fill='%23eef1f6'/><circle cx='50' cy='50' r='16' fill='%23d92027'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><h1 class="tag">Why kill yourself when you can kill your time?</h1></header>
+
+<main>
+  <section id="grid" aria-live="polite"></section>
+  <nav id="pager" aria-label="Pages"></nav>
+</main>
+
+<div id="reader" hidden data-fit="height">
+  <div class="bar">
+    <button id="close" aria-label="Close reader">✕</button>
+    <b id="rtitle"></b>
+    <span id="rcount"></span>
+    <button id="fit">Fit width</button>
+  </div>
+  <div id="stage"><img id="page" alt=""><div id="rmsg"></div></div>
+  <button class="nav" id="prev" aria-label="Previous page">‹</button>
+  <button class="nav" id="next" aria-label="Next page">›</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
